@@ -157,7 +157,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--leg", help="legislatura a analisar", required=True)
 parser.add_argument("--out_file", help="nome do ficheiro CSV")
 args = parser.parse_args()
-#leg = "l13"
+
 if args.out_file is None:
     args.out_file = args.leg + ".csv"
 
@@ -177,7 +177,6 @@ leg_ini_tree = ET.parse(urlopen(leg_ini_url))
 
 eprint("* Converting to dataframe.")
 leg_df = ini_to_df_ini(leg_ini_tree)
-#print(leg_df.to_csv(index=False, columns=["Tipo","PCP"]))
 
 ## Adjust dates and add more columns
 
