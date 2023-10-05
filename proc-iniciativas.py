@@ -143,7 +143,8 @@ def ini_to_df_ini(root):
                             init_dict[c.tag] = c.find("string").text
                         else:
                             init_dict[c.tag] = c.text
-                            init_list.append(init_dict)
+
+                    init_list.append(init_dict)
                             ## Provide progression feedback
                             #print('.', end='')
                             #print(counter)
