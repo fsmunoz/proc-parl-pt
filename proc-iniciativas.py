@@ -145,9 +145,11 @@ def ini_to_df_ini(root):
                             init_dict[c.tag] = c.text
 
                     init_list.append(init_dict)
+                    eprint(".", end="", flush=True)
                             ## Provide progression feedback
                             #print('.', end='')
                             #print(counter)
+    eprint(counter)
     return pd.DataFrame(init_list)
 
 
