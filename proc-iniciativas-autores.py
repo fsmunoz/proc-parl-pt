@@ -48,13 +48,17 @@ def dep_info(root):
     for deps in root.findall("Deputados"):
         for dep in deps.iter("pt_ar_wsgode_objectos_DadosDeputadoSearch"):
             d_info ={}
-
             d_info["depNomeParlamentar"] = dep.find("depNomeParlamentar").text
             d_info["depCPId"] = dep.find("depCPId").text
             d_info["depCPDes"] = dep.find("depCPDes").text
-            if dep.find("depGP/pt_ar_wsgode_objectos_DadosSituacaoGP/gpSigla") is not None:
-                d_info["gpSigla"] = dep.find("depGP/pt_ar_wsgode_objectos_DadosSituacaoGP/gpSigla").text
+            for sit in dep.iter(dep.find("pt_ar_wsgode_objectos_DadosSituacaoG")):
+                d_info[sit.tag] = sit.text
+            for sit in dep.iter(dep.find("pt_ar_wsgode_objectos_DadosSituacaoDeputado")):
+                d_info[sit.tag] = sit.text
+            #if dep.find("depGP/pt_ar_wsgode_objectos_DadosSituacaoGP/gpSigla") is not None:
+            #    d_info["gpSigla"] = dep.find("depGP/pt_ar_wsgode_objectos_DadosSituacaoGP/gpSigla").text
             dep_dict[dep.find("depCadId").text] = d_info
+
     return dep_dict
 
 
@@ -70,15 +74,32 @@ def ini_to_df_ini(root):
         for adep in ini.iter("iniAutorDeputados"):
             for autor in adep.iter("pt_gov_ar_objectos_iniciativas_AutoresDeputadosOut"):
                 init_dict = collections.OrderedDict()
+                for evento in ini.iter("iniEventos"):
+                    for ev in evento.iter("pt_gov_ar_objectos_iniciativas_EventosOut"):
+                        fase = ev.find("fase").text
+                        fase = ''.join(e for e in fase if e.isalnum())
+                        data = ev.find("dataFase").text
+                        init_dict["fase"] = fase
+                        init_dict[fase + "_data"] = data
                 counter +=1
                 for c in ini:
                     init_dict[c.tag] = c.text
-                for f in autor:
-                    init_dict[f.tag] = f.text
-                init_dict["depCPDes"] = dep_dict[init_dict["idCadastro"]]["depCPDes"]
+                #print("Autor", autor.find("nome").text)
+                init_dict["idCadastro"] = autor.find("idCadastro").text
+                init_dict["nome"] = autor.find("nome").text
+                init_dict["GP"] = autor.find("GP").text
+                if init_dict["idCadastro"] in dep_dict:
+                    #print("Checking ", init_dict["idCadastro"])
+                    init_dict["depCPDes"] = dep_dict[init_dict["idCadastro"]]["depCPDes"]
+                else:
+                    print("Skipping ", init_dict["nome"])
+                #for f in autor:
+                #    #print("Autor", f.tag)
+                #    init_dict[f.tag] = f.text
+                #    if f.tag == "idCadastro":
+                #        init_dict["depCPDes"] = dep_dict[init_dict["idCadastro"]]["depCPDes"]
                 init_list.append(init_dict)
             eprint(".", end="", flush=True)
-                    #print(init_dict)
     eprint(counter)
     return pd.DataFrame(init_list)
 
@@ -110,12 +131,15 @@ dep_tree = ET.parse(urlopen(dep_tree_url))
 ## dep_tree = ET.parse("InformacaoBaseXV.xml")
 dep_dict = dep_info(dep_tree)
 
+dep_df = pd.DataFrame.from_dict(dep_dict, orient='index')
+dep_df.index.name = "idCadastro"
+dep_df = dep_df.reset_index()
 ## Main parsing
 
 leg_ini_url = config.legs[args.leg]["url"]
 
 ## Useful for local testing
-## leg_ini_url = config.legs["l15"]["url"]
+# leg_ini_url = config.legs["l15"]["url"]
 
 ## Get and parse the XML
 eprint("* Parsing XML file.")
@@ -128,11 +152,26 @@ leg_df = ini_to_df_ini(leg_ini_tree)
 ## Adjust dates and add more columns
 
 eprint("* Adjusting date columns.")
-leg_df['dataInicioleg']= pd.to_datetime(leg_df['dataInicioleg'])
-leg_df['dataFimleg']= pd.to_datetime(leg_df['dataFimleg'])
+date_cols = [col for col in leg_df.columns if 'data' in col]
+#print(date_cols)
+
+for col in date_cols:
+    eprint(col, end=" ", flush=True)
+    leg_df[col] = pd.to_datetime(leg_df[col])
+#leg_df['dataInicioleg']= pd.to_datetime(leg_df['dataInicioleg'])
+#leg_df['dataFimleg']= pd.to_datetime(leg_df['dataFimleg'])
 leg_df['leg'] = args.leg
 
 ## Export to CSV
+print()
+print()
 eprint("* Exporting CSV.")
-leg_df.to_csv(Path(config.out_dir,args.out_file), index=False, columns=config.common_fields_aut, date_format='%Y-%m-%d')
+#leg_df.to_csv(Path(config.out_dir,args.out_file), index=False, columns=config.common_fields_aut, date_format='%Y-%m-%d')
+eprint(Path(config.out_dir,args.out_file, end=" ", flush=True))
+leg_df.to_csv(Path(config.out_dir,args.out_file), index=False,  date_format='%Y-%m-%d')
+
+eprint(Path(config.out_dir,"info_" + args.out_file, end=" ", flush=True))
+
+dep_df.to_csv(Path(config.out_dir,"info_" + args.out_file), index=False,  date_format='%Y-%m-%d')
+
 eprint("* Done.")
